@@ -25,25 +25,36 @@ public class AuthClient {
 
     private CloseableHttpClient httpclient = HttpClients.createDefault();
     private static Logger logger = LoggerFactory.getLogger(AuthClient.class);
+    private String url;
 
+    public AuthClient(String url) {
+        this.url = url;
+    }
 
     public static void main(String[] args) {
         try {
             CommandLineParser parser = new DefaultParser();
-            AuthClient client = new AuthClient();
 
             Options options = new Options();
+
+            Option urlOption = Option.builder("url")
+                    .hasArg()
+                    .desc("Base URL of the API : Eg :-url http://localhost:4567")
+                    .required()
+                    .build();
+
             Option usernameOption = Option.builder("u")
                     .hasArg()
-                    .desc("username to register")
+                    .desc("username to register Eg: -u test1")
                     .build();
             Option passwordOption = Option.builder("p")
-                    .desc("password to register")
+                    .desc("password to register Eg: -p pw1")
                     .hasArg()
                     .build();
 
             Option tokenOption = Option.builder("t")
-                    .desc("JWT token to be sent with request")
+                    .desc("JWT token to be sent with request eg: -t=eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJhdXRoMCIsIn" +
+                            "VzZXJuYW1lIjoidXNlcjEifQ.zlEe2AZn-qRhodQhttMnOJfqLGgdc1BIkYNd01kAins")
                     .hasArg()
                     .build();
 
@@ -57,14 +68,14 @@ public class AuthClient {
             options.addOption(passwordOption);
             options.addOption(actionOption);
             options.addOption(tokenOption);
-            options.addOption("register", false, "register a new user");
-            options.addOption("auth", false, "authenticate a user");
-            options.addOption("lastLogins", false, "Get last 5 successful attempts");
+            options.addOption(urlOption);
 
             CommandLine line = parser.parse(options, args);
 
-
+            String url = line.getOptionValue("url");
             String action = line.getOptionValue('a');
+
+            AuthClient client = new AuthClient(url);
 
             if ("register".equalsIgnoreCase(action)) {
                 if (!(line.hasOption('u') && line.hasOption('p'))) {
@@ -82,9 +93,9 @@ public class AuthClient {
                 if (!line.hasOption('t')) {
                     client.printHelp(options);
                 } else {
-                    client.authenticate(line.getOptionValue('u'), line.getOptionValue('p'));
+                    client.getLastAccess(line.getOptionValue('t'));
                 }
-                client.getLastAccess();
+
             }
 
 
@@ -94,11 +105,12 @@ public class AuthClient {
             e.printStackTrace();
         } catch (ParseException e) {
             logger.error(e.getMessage());
+
         }
     }
 
     public String register(String username, String password) throws IOException {
-        HttpPost registerPost = new HttpPost("http://localhost:4567/register");
+        HttpPost registerPost = new HttpPost(this.url + "/register");
         List<NameValuePair> nvps = new ArrayList<>();
         nvps.add(new BasicNameValuePair("username", username));
         nvps.add(new BasicNameValuePair("password", password));
@@ -113,7 +125,7 @@ public class AuthClient {
     }
 
     public String authenticate(String username, String password) throws IOException {
-        HttpPost authPost = new HttpPost("http://localhost:4567/authenticate");
+        HttpPost authPost = new HttpPost(this.url + "/authenticate");
         List<NameValuePair> nvps = new ArrayList<>();
         nvps.add(new BasicNameValuePair("username", username));
         nvps.add(new BasicNameValuePair("password", password));
@@ -127,9 +139,10 @@ public class AuthClient {
         }
     }
 
-    public String getLastAccess() throws IOException {
-        HttpGet lastAccessGet = new HttpGet("http://localhost:4567/getLogins");
+    public String getLastAccess(String token) throws IOException {
+        HttpGet lastAccessGet = new HttpGet(this.url + "/getLogins");
         List<NameValuePair> nvps = new ArrayList<>();
+        lastAccessGet.setHeader("Authorization","bearer "+token);
         CloseableHttpResponse response = httpclient.execute(lastAccessGet);
         System.out.println(EntityUtils.toString(response.getEntity()));
         try {
@@ -139,9 +152,13 @@ public class AuthClient {
         }
     }
 
-    public void printHelp(Options options) {
+    public static void printHelp(Options options) {
         HelpFormatter formater = new HelpFormatter();
-        formater.printHelp("Main", options);
+        formater.printHelp("java -jar auth-client-1.0-SNAPSHOT-jar-with-dependencies.jar" +
+                        "-url http://localhost:4567  -a auth -u user1 -p pass1" +
+                        "\n" +
+                        "actions available are register,auth,lastLogins",
+                options);
         System.exit(0);
     }
 }
