@@ -41,6 +41,12 @@ public class AuthClient {
                     .desc("password to register")
                     .hasArg()
                     .build();
+
+            Option tokenOption = Option.builder("t")
+                    .desc("JWT token to be sent with request")
+                    .hasArg()
+                    .build();
+
             Option actionOption = Option.builder("a")
                     .desc("Action to perform")
                     .hasArg(true)
@@ -50,6 +56,7 @@ public class AuthClient {
             options.addOption(usernameOption);
             options.addOption(passwordOption);
             options.addOption(actionOption);
+            options.addOption(tokenOption);
             options.addOption("register", false, "register a new user");
             options.addOption("auth", false, "authenticate a user");
             options.addOption("lastLogins", false, "Get last 5 successful attempts");
@@ -72,6 +79,11 @@ public class AuthClient {
                     client.authenticate(line.getOptionValue('u'), line.getOptionValue('p'));
                 }
             } else if (("lastLogins".equalsIgnoreCase(action))) {
+                if (!line.hasOption('t')) {
+                    client.printHelp(options);
+                } else {
+                    client.authenticate(line.getOptionValue('u'), line.getOptionValue('p'));
+                }
                 client.getLastAccess();
             }
 
@@ -88,8 +100,8 @@ public class AuthClient {
     public String register(String username, String password) throws IOException {
         HttpPost registerPost = new HttpPost("http://localhost:4567/register");
         List<NameValuePair> nvps = new ArrayList<>();
-        nvps.add(new BasicNameValuePair("username",username));
-        nvps.add(new BasicNameValuePair("password",password));
+        nvps.add(new BasicNameValuePair("username", username));
+        nvps.add(new BasicNameValuePair("password", password));
         registerPost.setEntity(new UrlEncodedFormEntity(nvps));
         CloseableHttpResponse response = httpclient.execute(registerPost);
         System.out.println(EntityUtils.toString(response.getEntity()));
